@@ -1,14 +1,17 @@
 #!/opt/anaconda3/bin/python
 
 import sys
-import argparse
+import time
 import os
+
 from glob import glob
+import exifread
+
+import argparse
 import pprint
 
 CAMERADIR="/sdcard/DCIM/Camera"
 WHATSAPPDIR="/sdcard/WhatsApp/Media/WhatsApp\ Voice\ Notes"
-
 
 def pullMedia(targetDir, srcDir):
     print("Pulling media files from directory: " + srcDir)
@@ -16,7 +19,7 @@ def pullMedia(targetDir, srcDir):
 
 def convertOpusAudio(targetDir):
     print("Converting opus audio files to mp3 ...")
-    
+
     for subdirContent in os.walk(targetDir):
         for opusFile in glob(os.path.join(subdirContent[0], '*.opus')):
             print("converting " + opusFile)
@@ -30,8 +33,34 @@ def convertOpusAudio(targetDir):
             else:
                 raise RuntimeError("Converting opus file failed: " + opusFile)
 
-def sortMediaByDate(targetDir, srcDir):
+# ------------------------------------------------------------------------------------------------
+
+def getMetaData(mfile):
     pass
+
+def sortMediaByDate(targetDir, srcDir):
+    print("Sorting media files by date ...")
+
+    unsorted = list()
+    for (dirpath, dirnames, filenames) in os.walk(srcDir):
+        for fname in filenames:
+            mediaFile = os.path.join(dirpath, fname)
+
+            dataTaken, prefix = getMetaData(mediaFile)
+            if(dateTaken = None): 
+                unsorted.append(mediaFile)
+                continue
+
+            targetFile = getTragetName(targetDir, mediaFile, dataTaken, prefix)
+            if(targetFile == None):
+                unsorted.append(mediaFile)
+                continue
+
+            copyTargetFile(targetFile)
+
+            if(len(unsorted) > 0):
+                copyUnsortedFiles(targetDir, unsorted)
+
 
 def sortMediaByType(targetDir, srcDir):
     pass
@@ -47,8 +76,8 @@ def mkOutDir(outputDir, dname):
 # ------------------------------------------------------------------------------------------------
 
 parser = argparse.ArgumentParser(description=
-            "Extract media files from adb connected" 
-            "device and sort it by content type and data.")
+        "Extract media files from adb connected" 
+        "device and sort it by content type and data.")
 
 parser.add_argument("-o", "--outputDir",type=str, help="Path to output directory.", required=True)
 
