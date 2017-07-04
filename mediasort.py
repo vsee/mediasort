@@ -70,16 +70,56 @@ class MediaFile:
         self.srcFile = src
         self.mediaType = MediaType.mime_to_mediaType(src)
 
-def getDateTaken(mfile):
-    if(mfile.mediaType == MediaType.VIDEO):
-        pass
-    elif(mfile.mediaType == MediaType.AUDIO):
-        pass
-    elif(mfile.mediaType == MediaType.IMAGE):
-        pass
+def getVideoDateTaken(src):
+    # EXPECTED: VI_2015110_174731.mp4
+    dateStr = os.path.splitext(os.path.basename(src))[0]
+    return time.strptime(dateStr, "VID_%Y%m%d_%H%M%S")
 
+def getAudioDateTaken(src):
+    # EXPECTED: PTT-20140724-WA0001.mp3
+    dateStr = os.path.splitext(os.path.basename(src))[0]
+    dateStr = dateStr.split("-")
+    return time.strptime(dateStr[1], "%Y%m%d")
+
+def getImageDateTaken(src):
+    with open(src, 'rb') as imgFile:
+        imgTags = exifread.process_file(imgFile, details=False)
+
+        if("EXIF DateTimeOriginal" in imgTags):
+            dateStr = str(imgTags["EXIF DateTimeOriginal"])
+            return time.strptime(dateStr, "%Y:%m:%d %H:%M:%S")
+        elif(os.path.basename(src).startswith("IMG_")):
+            #EXPECTED IMG_20141225_105859
+            dateStr = os.path.splitext(os.path.basename(src))[0]
+            return time.strptime(dateStr, "IMG_%Y%m%d_%H%M%S")
+        elif(os.path.basename(src).startswith("Burst_Cover_GIF_Action_")):
+            #EXPECTED Burst_Cover_GIF_Action_20170621113951.gif
+            dateStr = os.path.splitext(os.path.basename(src))[0]
+            return time.strptime(dateStr, "Burst_Cover_GIF_Action_%Y%m%d%H%M%S")
+    
+    return None
+
+def getDateTaken(mfile):
+    date = None
+    
+    try:
+        if(mfile.mediaType == MediaType.VIDEO):
+            date = getVideoDateTaken(mfile.srcFile)
+        elif(mfile.mediaType == MediaType.AUDIO):
+            date = getAudioDateTaken(mfile.srcFile)
+        elif(mfile.mediaType == MediaType.IMAGE):
+            date = getImageDateTaken(mfile.srcFile)
+    except ValueError:
+        date = None
+    
+    if(date == None):
+        print("WARNING: date not extracted for " + mfile.srcFile)
+    else:
+        mfile.dateTaken = date
 
 def addToCollection(coll, mfile):
+    # TODO add mfile to collection
+    # mediaType -> year -> month -> day -> mediaFile
     pass
 
 def classifyMediaFiles(srcDir):
