@@ -4,6 +4,9 @@ import sys
 import time
 import os
 
+from enum import Enum, unique, auto
+import mimetypes
+
 from glob import glob
 import exifread
 
@@ -35,43 +38,78 @@ def convertOpusAudio(targetDir):
 
 # ------------------------------------------------------------------------------------------------
 
-def getMetaData(mfile):
+@unique
+class MediaType(Enum):
+    VIDEO = auto()
+    IMAGE = auto()
+    AUDIO = auto()
+    UNKNOWN = auto()
+
+    @classmethod
+    def mime_to_mediaType(cls, filename):
+        mime = mimetypes.guess_type(filename)[0] 
+        if(mime == None):
+            return cls.UNKNOWN
+        elif(mime.startswith("video")):
+            return cls.VIDEO
+        elif(mime.startswith("image")):
+            return cls.IMAGE
+        elif(mime.startswith("audio")):
+            return cls.AUDIO
+        else:
+            print("WARNING unhandled media type [" + mime + "] for file " + filename)
+            return cls.UNKNOWN
+
+
+class MediaFile:
+    dateTaken = None
+    mediaType = None
+    srcFile = None
+
+    def __init__(self, src):
+        self.srcFile = src
+        self.mediaType = MediaType.mime_to_mediaType(src)
+
+def getDateTaken(mfile):
+    if(mfile.mediaType == MediaType.VIDEO):
+        pass
+    elif(mfile.mediaType == MediaType.AUDIO):
+        pass
+    elif(mfile.mediaType == MediaType.IMAGE):
+        pass
+
+
+def addToCollection(coll, mfile):
     pass
 
-def sortMediaByDate(targetDir, srcDir):
-    print("Sorting media files by date ...")
+def classifyMediaFiles(srcDir):
+    print("Classifying Media Files ...")
 
-    unsorted = list()
+    # mediaType -> year -> month -> day -> mediaFile
+    result = dict()
     for (dirpath, dirnames, filenames) in os.walk(srcDir):
         for fname in filenames:
-            mediaFile = os.path.join(dirpath, fname)
+            currFile = MediaFile(os.path.join(dirpath, fname))
+            
+            if(currFile.mediaType != MediaType.UNKNOWN):
+                getDateTaken(currFile)
 
-            dataTaken, prefix = getMetaData(mediaFile)
-            if(dateTaken = None): 
-                unsorted.append(mediaFile)
-                continue
+            addToCollection(result, currFile)
 
-            targetFile = getTragetName(targetDir, mediaFile, dataTaken, prefix)
-            if(targetFile == None):
-                unsorted.append(mediaFile)
-                continue
+    return result
 
-            copyTargetFile(targetFile)
+# ------------------------------------------------------------------------------------------------
 
-            if(len(unsorted) > 0):
-                copyUnsortedFiles(targetDir, unsorted)
-
-
-def sortMediaByType(targetDir, srcDir):
+def copyFiles(outDir, mfiles):
     pass
+
+# ------------------------------------------------------------------------------------------------
 
 def mkOutDir(outputDir, dname):
     d = os.path.join(outputDir, dname)
     if not os.path.exists(d):
         os.makedirs(d)
     return d
-
-
 
 # ------------------------------------------------------------------------------------------------
 
@@ -93,8 +131,6 @@ sortmeDir = mkOutDir(args.outputDir, "sortme")
 
 #convertOpusAudio(sortmeDir)
 
-sortedDateDir = mkOutDir(args.outputDir, "sortedDate")
-sortMediaByDate(sortedDateDir, sortmeDir)
-
-sortedMediaDir = mkOutDir(args.outputDir, "sortedMedia")
-sortMediaByType(sortedMediaDir, sortedDateDir)
+# mediaType -> year -> month -> day -> mediaFile
+mediaFiles = classifyMediaFiles(sortmeDir)
+copyFiles(args.outputDir, mediaFiles)
