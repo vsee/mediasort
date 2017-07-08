@@ -9,6 +9,7 @@ import mimetypes
 
 from glob import glob
 import exifread
+import shutil
 
 import argparse
 import pprint
@@ -17,11 +18,11 @@ CAMERADIR="/sdcard/DCIM/Camera"
 WHATSAPPDIR="/sdcard/WhatsApp/Media/WhatsApp\ Voice\ Notes"
 
 def pullMedia(targetDir, srcDir):
-    print("Pulling media files from directory: " + srcDir)
+    print("\n############ Pulling media files from directory: " + srcDir)
     os.system("adb pull " + srcDir + " " + targetDir)
 
 def convertOpusAudio(targetDir):
-    print("Converting opus audio files to mp3 ...")
+    print("\n############ Converting opus audio files to mp3 ...")
 
     for subdirContent in os.walk(targetDir):
         for opusFile in glob(os.path.join(subdirContent[0], '*.opus')):
@@ -65,10 +66,16 @@ class MediaFile:
     dateTaken = None
     mediaType = None
     srcFile = None
+    prefix = None
 
     def __init__(self, src):
         self.srcFile = src
         self.mediaType = MediaType.mime_to_mediaType(src)
+    
+    def __repr__(self):
+        dateStr = time.strftime("%Y-%m-%d",self.dateTaken) if self.dateTaken != None else "NONE"
+        return self.mediaType.name + " " + self.srcFile + " " + dateStr
+
 
 def getVideoDateTaken(src):
     # EXPECTED: VI_2015110_174731.mp4
@@ -83,7 +90,7 @@ def getAudioDateTaken(src):
 
 def getImageDateTaken(src):
     with open(src, 'rb') as imgFile:
-        imgTags = exifread.process_file(imgFile, details=False)
+        imgTags = exifread.process_file(imgFile, details=False, stop_tag='EXIF DateTimeOriginal')
 
         if("EXIF DateTimeOriginal" in imgTags):
             dateStr = str(imgTags["EXIF DateTimeOriginal"])
@@ -105,10 +112,13 @@ def getDateTaken(mfile):
     try:
         if(mfile.mediaType == MediaType.VIDEO):
             date = getVideoDateTaken(mfile.srcFile)
+            mfile.prefix = "vid"
         elif(mfile.mediaType == MediaType.AUDIO):
             date = getAudioDateTaken(mfile.srcFile)
+            mfile.prefix = "audio"
         elif(mfile.mediaType == MediaType.IMAGE):
             date = getImageDateTaken(mfile.srcFile)
+            mfile.prefix = "pics"
     except ValueError:
         date = None
     
@@ -117,16 +127,41 @@ def getDateTaken(mfile):
     else:
         mfile.dateTaken = date
 
-def addToCollection(coll, mfile):
-    # TODO add mfile to collection
+def addToCollection(mediafiles, mfile):
     # mediaType -> year -> month -> day -> mediaFile
-    pass
+    if not mfile.mediaType in mediafiles:
+        if mfile.mediaType == MediaType.UNKNOWN:
+            mediafiles[mfile.mediaType] = list()
+        else:
+            mediafiles[mfile.mediaType] = dict()
+
+    if mfile.mediaType == MediaType.UNKNOWN:
+        mediafiles[mfile.mediaType].append(mfile)
+        return
+
+    years = mediafiles[mfile.mediaType]
+    year = str(mfile.dateTaken.tm_year)
+    if not year in years:
+        years[year] = dict()
+
+    months = years[year]
+    month = time.strftime("%m_%B", mfile.dateTaken)
+    if not month in months:
+        months[month] = dict()
+	
+    days = months[month]
+    day = time.strftime("%d_%a", mfile.dateTaken)
+    if not day in days:
+        days[day] = list()
+
+    days[day].append(mfile)
+
 
 def classifyMediaFiles(srcDir):
-    print("Classifying Media Files ...")
+    print("\n############ Classifying Media Files ...")
 
     # mediaType -> year -> month -> day -> mediaFile
-    result = dict()
+    mediafiles = dict()
     for (dirpath, dirnames, filenames) in os.walk(srcDir):
         for fname in filenames:
             currFile = MediaFile(os.path.join(dirpath, fname))
@@ -134,14 +169,9 @@ def classifyMediaFiles(srcDir):
             if(currFile.mediaType != MediaType.UNKNOWN):
                 getDateTaken(currFile)
 
-            addToCollection(result, currFile)
+            addToCollection(mediafiles, currFile)
 
-    return result
-
-# ------------------------------------------------------------------------------------------------
-
-def copyFiles(outDir, mfiles):
-    pass
+    return mediafiles
 
 # ------------------------------------------------------------------------------------------------
 
@@ -150,6 +180,61 @@ def mkOutDir(outputDir, dname):
     if not os.path.exists(d):
         os.makedirs(d)
     return d
+
+def copyFile(src, tdir, tname, text):
+    if not os.path.exists(tdir): 
+        os.makedirs(tdir)
+    
+    target = os.path.join(tdir,tname + text)
+    counter = 1
+    while(os.path.isfile(target) and counter < 100):
+        target = os.path.join(tdir, tname + "_" + str(counter).zfill(2) + text)
+        counter += 1
+
+    if(counter == 100):
+        print("WARNING: target file name duplicate. Gave up renaming: " + target)
+        return False
+
+    try:
+        shutil.copy2(src, target)
+        print(src + " --> " + target)
+    except shutil.SameFileError:
+        print("ERROR: Source " + src + " and destination " + target + " are the same.")
+        return False
+    except IOError:
+        print("ERROR: copy source " + src + " to destination " + target + " failed.")
+        return False
+
+    return True
+
+def sortFiles(outDir, mediafiles):
+    print("\n############# Copying files ...")
+    
+    for mtype, years in mediafiles.items():
+        if mtype == MediaType.UNKNOWN: continue
+        elif mtype == MediaType.VIDEO: sortedDir = os.path.join(outDir, "sorted", "videos")
+        elif mtype == MediaType.AUDIO: sortedDir = os.path.join(outDir, "sorted", "audio")
+        elif mtype == MediaType.IMAGE: sortedDir = os.path.join(outDir, "sorted", "images")
+        else: raise RuntimeError("Unhandled media type: " + mtype)
+
+        for year, months in years.items():
+            for month, days in months.items():
+                for day, files in days.items():
+                    for mf in files:
+                        tbase = (mf.prefix + "_" +
+                                time.strftime("%Y%m%d_%H%M%S", mf.dateTaken))
+                        text = os.path.splitext(mf.srcFile)[1]
+                        tdir = os.path.join(sortedDir,year,month,day)
+                        if(not copyFile(mf.srcFile, tdir, tbase, text)):
+                            mediafiles[MediaType.UNKNOWN].append(mf)
+
+    print("\n############# Copying unsorted files ...")
+    unsortedDir = mkOutDir(outDir, "unsorted")
+    for mf in mediafiles[MediaType.UNKNOWN]:
+        tbase = os.path.basename(mf.srcFile)
+        text = os.path.splitext(mf.srcFile)[1]
+        if(not copyFile(mf.srcFile, unsortedDir, tbase, text)):
+            print("WARNING: copying unsorted file " + mf.srcFile + " failed.")
 
 # ------------------------------------------------------------------------------------------------
 
@@ -171,6 +256,8 @@ sortmeDir = mkOutDir(args.outputDir, "sortme")
 
 #convertOpusAudio(sortmeDir)
 
-# mediaType -> year -> month -> day -> mediaFile
-mediaFiles = classifyMediaFiles(sortmeDir)
-copyFiles(args.outputDir, mediaFiles)
+# mediaType -> year -> month -> day -> list(mediaFile)
+mediafiles = classifyMediaFiles(sortmeDir)
+sortFiles(args.outputDir, mediafiles)
+
+# TODO offer the option to delete files from device
