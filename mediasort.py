@@ -17,6 +17,7 @@ import pprint
 CAMERADIR="/sdcard/DCIM/Camera"
 WHATSAPPDIR="/sdcard/WhatsApp/Media/WhatsApp\ Voice\ Notes"
 
+# TODO check if device is connected and readble
 def pullMedia(targetDir, srcDir):
     print("\n############ Pulling media files from directory: " + srcDir)
     os.system("adb pull " + srcDir + " " + targetDir)
@@ -78,15 +79,21 @@ class MediaFile:
 
 
 def getVideoDateTaken(src):
-    # EXPECTED: VI_2015110_174731.mp4
-    dateStr = os.path.splitext(os.path.basename(src))[0]
-    return time.strptime(dateStr, "VID_%Y%m%d_%H%M%S")
+    if(os.path.basename(src).startswith("VID_")):
+        # EXPECTED: VID_2015110_174731.mp4
+        dateStr = os.path.splitext(os.path.basename(src))[0]
+        return time.strptime(dateStr, "VID_%Y%m%d_%H%M%S")
+    else:
+        return None
 
 def getAudioDateTaken(src):
-    # EXPECTED: PTT-20140724-WA0001.mp3
-    dateStr = os.path.splitext(os.path.basename(src))[0]
-    dateStr = dateStr.split("-")
-    return time.strptime(dateStr[1], "%Y%m%d")
+    if(os.path.basename(src).startswith("PTT-")):
+        # EXPECTED: PTT-20140724-WA0001.mp3
+        dateStr = os.path.splitext(os.path.basename(src))[0]
+        dateStr = dateStr.split("-")
+        return time.strptime(dateStr[1], "%Y%m%d")
+    else:
+        return None
 
 def getImageDateTaken(src):
     with open(src, 'rb') as imgFile:
@@ -166,8 +173,11 @@ def classifyMediaFiles(srcDir):
         for fname in filenames:
             currFile = MediaFile(os.path.join(dirpath, fname))
             
+            #print(currFile) 
             if(currFile.mediaType != MediaType.UNKNOWN):
                 getDateTaken(currFile)
+                if(currFile.dateTaken == None):
+                    currFile.mediaType = MediaType.UNKNOWN
 
             addToCollection(mediafiles, currFile)
 
@@ -231,33 +241,58 @@ def sortFiles(outDir, mediafiles):
     print("\n############# Copying unsorted files ...")
     unsortedDir = mkOutDir(outDir, "unsorted")
     for mf in mediafiles[MediaType.UNKNOWN]:
-        tbase = os.path.basename(mf.srcFile)
+        tbase = os.path.splitext(os.path.basename(mf.srcFile))[0]
         text = os.path.splitext(mf.srcFile)[1]
         if(not copyFile(mf.srcFile, unsortedDir, tbase, text)):
             print("WARNING: copying unsorted file " + mf.srcFile + " failed.")
 
 # ------------------------------------------------------------------------------------------------
 
+def removeMedia(destDir):
+    answer = None
+    while answer == None:
+        answer = input("Do you want to remove media files from " + destDir + "? [yes/no]: ")
+        if answer != "yes" and answer != "no":
+            print("please answer yes or no")
+            answer = None
+        else:
+            answer = True if answer == "yes" else False
+    
+    if answer:
+        os.system("adb shell rm -r \"" + destDir + "/*\"")
+
+# ------------------------------------------------------------------------------------------------
+
+
 parser = argparse.ArgumentParser(description=
         "Extract media files from adb connected" 
         "device and sort it by content type and data.")
 
 parser.add_argument("-o", "--outputDir",type=str, help="Path to output directory.", required=True)
+parser.add_argument("-s", "--srcDir", type=str, help="Source directory of files to be sorted. If not specified, files will retrived from connected mobile using adb.")
 
 args = parser.parse_args()
 
 if(not os.path.isdir(args.outputDir)):
     raise RuntimeError("Output directory invalid: " + args.outputDir)
 
-sortmeDir = mkOutDir(args.outputDir, "sortme")
+sortmeDir = None
+if(args.srcDir != None):
+    sortmeDir = args.srcDir
+    if(not os.path.isdir(args.srcDir)):
+        raise RuntimeError("Source directory invalid " + args.srcDir)
 
-#pullMedia(sortmeDir, CAMERADIR)
-#pullMedia(sortmeDir, WHATSAPPDIR)
+else:
+    sortmeDir = mkOutDir(args.outputDir, "sortme")
+    pullMedia(sortmeDir, CAMERADIR)
+    pullMedia(sortmeDir, WHATSAPPDIR)
 
-#convertOpusAudio(sortmeDir)
+convertOpusAudio(sortmeDir)
 
 # mediaType -> year -> month -> day -> list(mediaFile)
 mediafiles = classifyMediaFiles(sortmeDir)
 sortFiles(args.outputDir, mediafiles)
 
-# TODO offer the option to delete files from device
+if(args.srcDir == None):
+    removeMedia(CAMERADIR)
+    removeMedia(WHATSAPPDIR)
