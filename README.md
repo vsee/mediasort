@@ -13,6 +13,7 @@ and sorts them by date and media type.
 * python3
 * [exifread](https://pypi.org/project/ExifRead/)  
 ```$ pip3 install exifread```
+* Android Platform-Tools, i.e. adb
 
 ## Target Devices
 
