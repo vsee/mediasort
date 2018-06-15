@@ -7,6 +7,7 @@ and sorts them by date and media type.
 
 * handles video, image and audio files and sorts accordingly
 * converts opus to mp3
+* considers DCIM and WhatsApp media folders
 
 ## Requirements
 
