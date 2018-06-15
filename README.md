@@ -10,7 +10,7 @@ and sorts them by date and media type.
 
 ## Requirements
 
-* exifread
+```$ pip install exifread```
 
 ## Target Devices
 
