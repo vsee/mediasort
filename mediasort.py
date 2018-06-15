@@ -31,10 +31,10 @@ def convertOpusAudio(targetDir):
             fileNoExt = opusFile.rsplit('.',1)[0]
             wavFile = fileNoExt + ".wav"
             mp3File = fileNoExt + ".mp3"
-            os.system("opusdec " + opusFile + " " + wavFile + ">/dev/null 2>&1")
-            os.system("lame " + wavFile + " " + mp3File + ">/dev/null 2>&1")
+            os.system("opusdec \"" + opusFile + "\" \"" + wavFile + "\" >/dev/null 2>&1")
+            os.system("lame \"" + wavFile + "\" \"" + mp3File + "\" >/dev/null 2>&1")
             if(os.path.exists(wavFile) and os.path.exists(mp3File)):
-                os.system("rm " + wavFile + " " + opusFile)
+                os.system("rm \"" + wavFile + "\" \"" + opusFile + "\"")
             else:
                 raise RuntimeError("Converting opus file failed: " + opusFile)
 
