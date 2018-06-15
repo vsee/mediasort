@@ -15,6 +15,8 @@ and sorts them by date and media type.
 * [exifread](https://pypi.org/project/ExifRead/)  
 ```$ pip3 install exifread```
 * Android Platform-Tools, i.e. adb
+* opus-tools, lame  
+```$ sudo apt install opus-tools lame```
 
 ## Target Devices
 
