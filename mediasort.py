@@ -14,13 +14,26 @@ import shutil
 import argparse
 import pprint
 
+import os.path
+
 CAMERADIR="/sdcard/DCIM/Camera"
-WHATSAPPDIR="/sdcard/WhatsApp/Media/WhatsApp\ Voice\ Notes"
+WHATSAPPVOICEDIR="/sdcard/WhatsApp/Media/WhatsApp\ Voice\ Notes"
+WHATSAPPVIDEODIR="/sdcard/WhatsApp/Media/WhatsApp\ Video"
+WHATSAPPIMGDIR="/sdcard/WhatsApp/Media/WhatsApp\ Images"
+
+VIDEOTYPES = ["mp4"]
+IMGTYPES = ["jpg","png","jpeg"]
+AUDIOTYPES = []
 
 # TODO check if device is connected and readble
-def pullMedia(targetDir, srcDir):
+def pullMedia(targetDir, srcDir, removeSent=False):
     print("\n############ Pulling media files from directory: " + srcDir)
     os.system("adb pull " + srcDir + " " + targetDir)
+
+    if removeSent:
+        target = targetDir + "/" + srcDir.split("/")[-1] + "/Sent"
+        print("Removing Sent directory: " + target)
+        os.system("rm -r " + target)
 
 def convertOpusAudio(targetDir):
     print("\n############ Converting opus audio files to mp3 ...")
@@ -62,6 +75,20 @@ class MediaType(Enum):
             print("WARNING unhandled media type [" + mime + "] for file " + filename)
             return cls.UNKNOWN
 
+    @classmethod
+    def filename_to_mediaType(cls, filename):
+        extension = os.path.splitext(filename)[1]
+
+        if(extension in VIDEOTYPES):
+            return cls.VIDEO
+        elif(extension in IMGTYPES):
+            return cls.IMAGE
+        elif(extension in AUDIOTYPES):
+            return cls.AUDIO
+        else:
+            print("WARNING unhandled media extension [" + 
+                    extension + "] for file " + filename)
+            return cls.UNKNOWN
 
 class MediaFile:
     dateTaken = None
@@ -71,7 +98,13 @@ class MediaFile:
 
     def __init__(self, src):
         self.srcFile = src
+        
+        # try to get media type from mime type
         self.mediaType = MediaType.mime_to_mediaType(src)
+
+        # try to get media type from file extension
+        if self.mediaType == MediaType.UNKNOWN:
+            self.mediaType = MediaType.filename_to_mediaType(src)
     
     def __repr__(self):
         dateStr = time.strftime("%Y-%m-%d",self.dateTaken) if self.dateTaken != None else "NONE"
@@ -83,6 +116,15 @@ def getVideoDateTaken(src):
         # EXPECTED: VID_2015110_174731.mp4
         dateStr = os.path.splitext(os.path.basename(src))[0]
         return time.strptime(dateStr, "VID_%Y%m%d_%H%M%S")
+    elif(os.path.basename(src).startswith("VID-")):
+         # EXPECTED: VID-20190906-WA0011.mp4
+        dateStr = os.path.splitext(os.path.basename(src))[0]
+        
+        parts = dateStr.split("-")
+        if len(parts) != 3:
+            return None
+        else: 
+            return time.strptime(parts[1], "%Y%m%d")
     else:
         return None
 
@@ -110,7 +152,16 @@ def getImageDateTaken(src):
             #EXPECTED Burst_Cover_GIF_Action_20170621113951.gif
             dateStr = os.path.splitext(os.path.basename(src))[0]
             return time.strptime(dateStr, "Burst_Cover_GIF_Action_%Y%m%d%H%M%S")
-    
+        elif(os.path.basename(src).startswith("IMG-")):
+            # EXPECTED: IMG-20190906-WA0004.jpg
+           dateStr = os.path.splitext(os.path.basename(src))[0]
+           
+           parts = dateStr.split("-")
+           if len(parts) != 3:
+               return None
+           else: 
+               return time.strptime(parts[1], "%Y%m%d")
+   
     return None
 
 def getDateTaken(mfile):
@@ -238,6 +289,10 @@ def sortFiles(outDir, mediafiles):
                         if(not copyFile(mf.srcFile, tdir, tbase, text)):
                             mediafiles[MediaType.UNKNOWN].append(mf)
 
+    # bail out early if all files where successfully sorted
+    if not MediaType.UNKNOWN in mediafiles:
+        return
+
     print("\n############# Copying unsorted files ...")
     unsortedDir = mkOutDir(outDir, "unsorted")
     for mf in mediafiles[MediaType.UNKNOWN]:
@@ -285,7 +340,9 @@ if(args.srcDir != None):
 else:
     sortmeDir = mkOutDir(args.outputDir, "sortme")
     pullMedia(sortmeDir, CAMERADIR)
-    pullMedia(sortmeDir, WHATSAPPDIR)
+    pullMedia(sortmeDir, WHATSAPPVOICEDIR)
+    pullMedia(sortmeDir, WHATSAPPVIDEODIR, removeSent=True)
+    pullMedia(sortmeDir, WHATSAPPIMGDIR, removeSent=True)
 
 convertOpusAudio(sortmeDir)
 
@@ -295,4 +352,6 @@ sortFiles(args.outputDir, mediafiles)
 
 if(args.srcDir == None):
     removeMedia(CAMERADIR)
-    removeMedia(WHATSAPPDIR)
+    removeMedia(WHATSAPPVOICEDIR)
+    removeMedia(WHATSAPPVIDEODIR)
+    removeMedia(WHATSAPPIMGDIR)
