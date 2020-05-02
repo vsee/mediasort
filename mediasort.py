@@ -325,6 +325,7 @@ parser = argparse.ArgumentParser(description=
 
 parser.add_argument("-o", "--outputDir",type=str, help="Path to output directory.", required=True)
 parser.add_argument("-s", "--srcDir", type=str, help="Source directory of files to be sorted. If not specified, files will retrived from connected mobile using adb.")
+parser.add_argument('--pullOnly', help='Only pull the data from mobile, do not sort.',  action='store_true')
 
 args = parser.parse_args()
 
@@ -344,11 +345,12 @@ else:
     pullMedia(sortmeDir, WHATSAPPVIDEODIR, removeSent=True)
     pullMedia(sortmeDir, WHATSAPPIMGDIR, removeSent=True)
 
-convertOpusAudio(sortmeDir)
+if not args.pullOnly:
+    convertOpusAudio(sortmeDir)
 
-# mediaType -> year -> month -> day -> list(mediaFile)
-mediafiles = classifyMediaFiles(sortmeDir)
-sortFiles(args.outputDir, mediafiles)
+    # mediaType -> year -> month -> day -> list(mediaFile)
+    mediafiles = classifyMediaFiles(sortmeDir)
+    sortFiles(args.outputDir, mediafiles)
 
 if(args.srcDir == None):
     removeMedia(CAMERADIR)
