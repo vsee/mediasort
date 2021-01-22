@@ -16,13 +16,16 @@ import pprint
 
 import os.path
 
+import datetime
+import pathlib
+
 CAMERADIR="/sdcard/DCIM/Camera"
 WHATSAPPVOICEDIR="/sdcard/WhatsApp/Media/WhatsApp\ Voice\ Notes"
 WHATSAPPVIDEODIR="/sdcard/WhatsApp/Media/WhatsApp\ Video"
 WHATSAPPIMGDIR="/sdcard/WhatsApp/Media/WhatsApp\ Images"
 
 VIDEOTYPES = ["mp4"]
-IMGTYPES = ["jpg","png","jpeg"]
+IMGTYPES = ["jpg","png","jpeg","HEIC"]
 AUDIOTYPES = []
 
 # TODO check if device is connected and readble
@@ -77,7 +80,7 @@ class MediaType(Enum):
 
     @classmethod
     def filename_to_mediaType(cls, filename):
-        extension = os.path.splitext(filename)[1]
+        extension = os.path.splitext(filename)[1][1:]
 
         if(extension in VIDEOTYPES):
             return cls.VIDEO
@@ -161,7 +164,6 @@ def getImageDateTaken(src):
                return None
            else: 
                return time.strptime(parts[1], "%Y%m%d")
-   
     return None
 
 def getDateTaken(mfile):
@@ -169,21 +171,28 @@ def getDateTaken(mfile):
     
     try:
         if(mfile.mediaType == MediaType.VIDEO):
-            date = getVideoDateTaken(mfile.srcFile)
             mfile.prefix = "vid"
+            date = getVideoDateTaken(mfile.srcFile)
         elif(mfile.mediaType == MediaType.AUDIO):
-            date = getAudioDateTaken(mfile.srcFile)
             mfile.prefix = "audio"
+            date = getAudioDateTaken(mfile.srcFile)
         elif(mfile.mediaType == MediaType.IMAGE):
-            date = getImageDateTaken(mfile.srcFile)
             mfile.prefix = "pics"
-    except ValueError:
+            date = getImageDateTaken(mfile.srcFile)
+    except ValueError as e:
+        print("WARNING: expected date format invalid for: " + mfile.srcFile)
         date = None
     
+    if (mfile.prefix == None):
+        print("DEBUG: " + mfile.srcFile)
+
     if(date == None):
-        print("WARNING: date not extracted for " + mfile.srcFile)
-    else:
-        mfile.dateTaken = date
+        print("WARNING: date not extracted for " + mfile.srcFile + ". Using Creation Timestamp.")
+        srcPath = pathlib.Path(mfile.srcFile)
+        mtime = datetime.datetime.fromtimestamp(srcPath.stat().st_mtime)
+        date = mtime.timetuple()
+
+    mfile.dateTaken = date
 
 def addToCollection(mediafiles, mfile):
     # mediaType -> year -> month -> day -> mediaFile
