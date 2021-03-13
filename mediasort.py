@@ -257,11 +257,11 @@ def copyFile(src, tdir, tname, text):
     
     target = os.path.join(tdir,tname + text)
     counter = 1
-    while(os.path.isfile(target) and counter < 100):
-        target = os.path.join(tdir, tname + "_" + str(counter).zfill(2) + text)
+    while(os.path.isfile(target) and counter < 1000):
+        target = os.path.join(tdir, tname + "_" + str(counter).zfill(3) + text)
         counter += 1
 
-    if(counter == 100):
+    if(counter == 1000):
         print("WARNING: target file name duplicate. Gave up renaming: " + target)
         return False
 
@@ -277,7 +277,7 @@ def copyFile(src, tdir, tname, text):
 
     return True
 
-def sortFiles(outDir, mediafiles):
+def sortFiles(outDir, mediafiles, custom_prefix):
     print("\n############# Copying files ...")
     
     for mtype, years in mediafiles.items():
@@ -291,8 +291,10 @@ def sortFiles(outDir, mediafiles):
             for month, days in months.items():
                 for day, files in days.items():
                     for mf in files:
-                        tbase = (mf.prefix + "_" +
-                                time.strftime("%Y%m%d_%H%M%S", mf.dateTaken))
+                        tbase = mf.prefix + "_"
+                        if custom_prefix:
+                            tbase += custom_prefix + "_"
+                        tbase += time.strftime("%Y%m%d_%H%M%S", mf.dateTaken)
                         text = os.path.splitext(mf.srcFile)[1]
                         tdir = os.path.join(sortedDir,year,month,day)
                         if(not copyFile(mf.srcFile, tdir, tbase, text)):
@@ -335,6 +337,7 @@ parser = argparse.ArgumentParser(description=
 parser.add_argument("-o", "--outputDir",type=str, help="Path to output directory.", required=True)
 parser.add_argument("-s", "--srcDir", type=str, help="Source directory of files to be sorted. If not specified, files will retrived from connected mobile using adb.")
 parser.add_argument('--pullOnly', help='Only pull the data from mobile, do not sort.',  action='store_true')
+parser.add_argument("--prefix", type=str, help="Add this prefix to every media file.")
 
 args = parser.parse_args()
 
@@ -359,7 +362,7 @@ if not args.pullOnly:
 
     # mediaType -> year -> month -> day -> list(mediaFile)
     mediafiles = classifyMediaFiles(sortmeDir)
-    sortFiles(args.outputDir, mediafiles)
+    sortFiles(args.outputDir, mediafiles, args.prefix)
 
 if(args.srcDir == None):
     removeMedia(CAMERADIR)
