@@ -119,24 +119,28 @@ class MediaFile:
 def getVideoDateTaken(src):
     if(os.path.basename(src).startswith("VID_")):
         # EXPECTED: VID_2015110_174731.mp4
-        dateStr = os.path.splitext(os.path.basename(src))[0]
+        dateStr = (os.path.basename(src)).split(".")[0]
         return time.strptime(dateStr, "VID_%Y%m%d_%H%M%S")
     elif(os.path.basename(src).startswith("VID-")):
          # EXPECTED: VID-20190906-WA0011.mp4
-        dateStr = os.path.splitext(os.path.basename(src))[0]
+        dateStr = (os.path.basename(src)).split(".")[0]
         
         parts = dateStr.split("-")
         if len(parts) != 3:
             return None
         else: 
             return time.strptime(parts[1], "%Y%m%d")
+    elif(os.path.basename(src).startswith("PXL_")):
+        # EXPECTED: PXL_20210121_175800715.mp4
+        dateStr = (os.path.basename(src)).split(".")[0]
+        return time.strptime(dateStr, "PXL_%Y%m%d_%H%M%S%f")
     else:
         return None
 
 def getAudioDateTaken(src):
     if(os.path.basename(src).startswith("PTT-")):
         # EXPECTED: PTT-20140724-WA0001.mp3
-        dateStr = os.path.splitext(os.path.basename(src))[0]
+        dateStr = (os.path.basename(src)).split(".")[0]
         dateStr = dateStr.split("-")
         return time.strptime(dateStr[1], "%Y%m%d")
     else:
@@ -151,15 +155,15 @@ def getImageDateTaken(src):
             return time.strptime(dateStr, "%Y:%m:%d %H:%M:%S")
         elif(os.path.basename(src).startswith("IMG_")):
             #EXPECTED IMG_20141225_105859
-            dateStr = os.path.splitext(os.path.basename(src))[0]
+            dateStr = (os.path.basename(src)).split(".")[0]
             return time.strptime(dateStr, "IMG_%Y%m%d_%H%M%S")
         elif(os.path.basename(src).startswith("Burst_Cover_GIF_Action_")):
             #EXPECTED Burst_Cover_GIF_Action_20170621113951.gif
-            dateStr = os.path.splitext(os.path.basename(src))[0]
+            dateStr = (os.path.basename(src)).split(".")[0]
             return time.strptime(dateStr, "Burst_Cover_GIF_Action_%Y%m%d%H%M%S")
         elif(os.path.basename(src).startswith("IMG-")):
             # EXPECTED: IMG-20190906-WA0004.jpg
-           dateStr = os.path.splitext(os.path.basename(src))[0]
+           dateStr = (os.path.basename(src)).split(".")[0]
            
            parts = dateStr.split("-")
            if len(parts) != 3:
