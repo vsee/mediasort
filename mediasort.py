@@ -20,9 +20,11 @@ import datetime
 import pathlib
 
 CAMERADIR="/sdcard/DCIM/Camera"
-WHATSAPPVOICEDIR="/sdcard/WhatsApp/Media/WhatsApp\ Voice\ Notes"
-WHATSAPPVIDEODIR="/sdcard/WhatsApp/Media/WhatsApp\ Video"
-WHATSAPPIMGDIR="/sdcard/WhatsApp/Media/WhatsApp\ Images"
+WHATSAPPROOT = "/sdcard/Android/media/com.whatsapp/WhatsApp/Media"
+# WHATSAPPROOT = "/sdcard/WhatsApp/Media"
+WHATSAPPVOICEDIR= WHATSAPPROOT + "/WhatsApp\ Voice\ Notes"
+WHATSAPPVIDEODIR= WHATSAPPROOT + "/WhatsApp\ Video"
+WHATSAPPIMGDIR= WHATSAPPROOT + "/WhatsApp\ Images"
 
 VIDEOTYPES = ["mp4"]
 IMGTYPES = ["jpg","png","jpeg","HEIC"]
