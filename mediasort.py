@@ -2,6 +2,7 @@
 
 import time
 import os
+import concurrent.futures
 
 from enum import Enum, unique, auto
 import mimetypes
@@ -16,6 +17,12 @@ import os.path
 
 import datetime
 import pathlib
+
+from PIL import Image
+import pillow_heif
+from tqdm import tqdm
+
+import re
 
 CAMERADIR="/sdcard/DCIM/Camera"
 WHATSAPPROOT = "/sdcard/Android/media/com.whatsapp/WhatsApp/Media"
@@ -53,6 +60,48 @@ def convertOpusAudio(targetDir):
                 os.system("rm \"" + wavFile + "\" \"" + opusFile + "\"")
             else:
                 raise RuntimeError("Converting opus file failed: " + opusFile)
+
+
+def convert_heic_to_jpeg(input_path, output_path):
+
+    try:
+        heif_file = pillow_heif.read_heif(input_path)
+        image = Image.frombytes(
+            heif_file.mode,
+            heif_file.size,
+            heif_file.data,
+            "raw"
+        )
+        image.save(output_path, "JPEG")
+
+    except Exception as e:
+        print(f"Error converting {input_path}: {e}")
+
+def batch_convert_heic_to_jpeg(source_dir):
+    heic_files = []
+    # Collect all HEIC files and their output paths
+    for root, _, files in os.walk(source_dir):
+        for file in files:
+            if file.lower().endswith(".heic"):
+                heic_path = os.path.join(root, file)
+                jpeg_path = os.path.splitext(heic_path)[0] + ".jpg"
+                if not os.path.exists(jpeg_path):
+                    heic_files.append((heic_path, jpeg_path))
+
+    # Parallelize the conversion using ThreadPoolExecutor
+    with concurrent.futures.ThreadPoolExecutor() as executor:
+        # Submit tasks to the executor for each file
+        future_to_file = {executor.submit(convert_heic_to_jpeg, heic_path, jpeg_path): (heic_path, jpeg_path) for heic_path, jpeg_path in heic_files}
+
+        # Wait for all futures to complete and handle results
+        for future in tqdm(concurrent.futures.as_completed(future_to_file), total=len(heic_files), desc="Converting HEIC to JPEG"):
+            heic_path, jpeg_path = future_to_file[future]
+            try:
+                future.result()  # If any exception was raised during conversion, it will be re-raised here
+                tqdm.write(f"Successfully converted: {heic_path} -> {jpeg_path}")
+            except Exception as e:
+                tqdm.write(f"Error converting {heic_path} -> {jpeg_path}: {e}")
+
 
 # ------------------------------------------------------------------------------------------------
 
@@ -168,6 +217,27 @@ def getImageDateTaken(src):
                return None
            else: 
                return time.strptime(parts[1], "%Y%m%d")
+
+    # If no EXIF data and none of the conditions above matched, check for a .heic file
+    folder = os.path.dirname(src)
+    base_name = os.path.splitext(os.path.basename(src))[0]
+    heic_file = os.path.join(folder, f"{base_name}.heic")
+
+    if os.path.exists(heic_file):
+        # Expected format: 2024-08-17 08.35.05.heic or 2025-02-26 06.09.49-1.heic
+        base_name = os.path.basename(heic_file)  # Get full file name (no need to split extension here)
+        
+        # Use regular expression to match the date-time pattern
+        match = re.match(r"(\d{4}-\d{2}-\d{2} \d{2}\.\d{2}\.\d{2})", base_name)
+        
+        if match:
+            dateStr = match.group(1)  # Extract the matched date-time string
+            try:
+                return time.strptime(dateStr, "%Y-%m-%d %H.%M.%S")
+            except ValueError:
+                print(f"WARNING: failed to parse date string from {heic_file}")
+                return None
+
     return None
 
 def getDateTaken(mfile):
@@ -363,6 +433,7 @@ else:
 
 if not args.pullOnly:
     convertOpusAudio(sortmeDir)
+    batch_convert_heic_to_jpeg(sortmeDir)
 
     # mediaType -> year -> month -> day -> list(mediaFile)
     mediafiles = classifyMediaFiles(sortmeDir)
