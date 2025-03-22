@@ -1,39 +1,38 @@
-name: mediasort
+name: mediasortenv
 channels:
   - conda-forge
   - defaults
 dependencies:
-  - _libgcc_mutex=0.1=main
-  - _openmp_mutex=4.5=1_gnu
-  - ca-certificates=2021.5.30=ha878542_0
-  - certifi=2021.5.30=py39hf3d152e_0
-  - gettext=0.19.8.1=h0b5b191_1005
-  - lame=3.100=h7f98852_1001
-  - ld_impl_linux-64=2.35.1=h7274673_9
-  - libffi=3.3=he6710b0_2
-  - libflac=1.3.1=he1b5a44_1002
-  - libgcc-ng=9.3.0=h5101ec6_17
-  - libgomp=9.3.0=h5101ec6_17
-  - libogg=1.3.4=h7f98852_1
-  - libopus=1.3.1=h7f98852_1
-  - libopusenc=0.2.1=h516909a_0
-  - libpcap=1.10.1=h7f98852_0
-  - libstdcxx-ng=9.3.0=hd4cf53a_17
-  - ncurses=6.2=he6710b0_1
-  - openssl=1.1.1k=h7f98852_0
-  - opus-tools=0.2=h9d2e8aa_2
-  - opusfile=0.12=hcdb4288_0
-  - pip=21.1.3=py39h06a4308_0
-  - python=3.9.5=h12debd9_4
+  - ca-certificates=2021.5.30=h033912b_0
+  - certifi=2021.5.30=py39h6e9494a_0
+  - gettext=0.19.8.1=h7937167_1005
+  - lame=3.100=h1de35cc_0
+  - libcxx=10.0.0=1
+  - libffi=3.3=hb1e8313_2
+  - libflac=1.3.1=h4a8c4bd_1002
+  - libiconv=1.16=h1de35cc_0
+  - libogg=1.3.4=h35c211d_1
+  - libopus=1.3.1=hc929b4f_1
+  - libopusenc=0.2.1=h0b31af3_0
+  - libpcap=1.10.1=h0d85af4_0
+  - ncurses=6.2=h0a44026_1
+  - openssl=1.1.1k=h0d85af4_0
+  - opus-tools=0.2=hffeb106_2
+  - opusfile=0.12=h790d484_0
+  - pip=21.2.2=py39hecd8cb5_0
+  - python=3.9.5=h88f2d9e_3
   - python_abi=3.9=2_cp39
-  - readline=8.1=h27cfd23_0
-  - setuptools=52.0.0=py39h06a4308_0
-  - sqlite=3.36.0=hc218d9a_0
-  - tk=8.6.10=hbc83047_0
+  - readline=8.1=h9ed2024_0
+  - setuptools=52.0.0=py39hecd8cb5_0
+  - sqlite=3.36.0=hce871da_0
+  - tk=8.6.10=hb0a8c7a_0
   - tzdata=2021a=h52ac0ba_0
   - wheel=0.36.2=pyhd3eb1b0_0
-  - xz=5.2.5=h7b6447c_0
-  - zlib=1.2.11=h7b6447c_3
+  - xz=5.2.5=h1de35cc_0
+  - zlib=1.2.11=h1de35cc_3
   - pip:
     - exifread==2.3.2
-prefix: /home/vseeker/miniconda3/envs/mediasort
+    - loguru==0.7.3
+    - rclone==0.4.4
+    - tqdm==4.67.1
+prefix: /Users/vseeker/miniconda3/envs/mediasortenv
