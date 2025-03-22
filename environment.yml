@@ -35,6 +35,7 @@ dependencies:
     - exifread==2.3.2
     - loguru==0.7.3
     - pillow==11.1.0
+    - pillow-heif==0.22.0
     - pycparser==2.22
     - pyheif==0.8.0
     - rclone==0.4.4
