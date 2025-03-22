@@ -31,8 +31,12 @@ dependencies:
   - xz=5.2.5=h1de35cc_0
   - zlib=1.2.11=h1de35cc_3
   - pip:
+    - cffi==1.17.1
     - exifread==2.3.2
     - loguru==0.7.3
+    - pillow==11.1.0
+    - pycparser==2.22
+    - pyheif==0.8.0
     - rclone==0.4.4
     - tqdm==4.67.1
 prefix: /Users/vseeker/miniconda3/envs/mediasortenv

@@ -1,6 +1,5 @@
 #!/usr/bin/env python3
 
-import sys
 import time
 import os
 
@@ -12,7 +11,6 @@ import exifread
 import shutil
 
 import argparse
-import pprint
 
 import os.path
 
