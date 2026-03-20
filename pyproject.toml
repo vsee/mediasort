@@ -5,6 +5,7 @@ description = "Sort media files by content type and date"
 readme = "README.md"
 requires-python = ">=3.13"
 dependencies = [
+    "click>=8.0",
     "exifread>=2.3.2",
     "pillow>=11.1.0",
     "pillow-heif>=0.22.0",

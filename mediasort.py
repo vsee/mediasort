@@ -1,6 +1,5 @@
 #!/usr/bin/env python3
 
-import argparse
 import concurrent.futures
 import datetime
 import mimetypes
@@ -13,32 +12,15 @@ import time
 from enum import Enum, auto, unique
 from glob import glob
 
+import click
 import exifread
 import pillow_heif
 from PIL import Image
 from tqdm import tqdm
 
-CAMERADIR = "/sdcard/DCIM/Camera"
-WHATSAPPROOT = "/sdcard/Android/media/com.whatsapp/WhatsApp/Media"
-# WHATSAPPROOT = "/sdcard/WhatsApp/Media"
-WHATSAPPVOICEDIR = WHATSAPPROOT + "/WhatsApp Voice Notes"
-WHATSAPPVIDEODIR = WHATSAPPROOT + "/WhatsApp Video"
-WHATSAPPIMGDIR = WHATSAPPROOT + "/WhatsApp Images"
-
 VIDEOTYPES = ["mp4"]
 IMGTYPES = ["jpg", "png", "jpeg", "HEIC"]
 AUDIOTYPES = []
-
-
-# TODO check if device is connected and readable
-def pullMedia(targetDir, srcDir, removeSent=False):
-    print("\n############ Pulling media files from directory: " + srcDir)
-    os.system("adb pull " + srcDir + " " + targetDir)
-
-    if removeSent:
-        target = targetDir + "/" + srcDir.split("/")[-1] + "/Sent"
-        print("Removing Sent directory: " + target)
-        os.system("rm -r " + target)
 
 
 def convertOpusAudio(targetDir):
@@ -240,9 +222,7 @@ def getImageDateTaken(src):
 
     if os.path.exists(heic_file):
         # Expected format: 2024-08-17 08.35.05.heic or 2025-02-26 06.09.49-1.heic
-        base_name = os.path.basename(
-            heic_file
-        )  # Get full file name (no need to split extension here)
+        base_name = os.path.basename(heic_file)
 
         # Use regular expression to match the date-time pattern
         match = re.match(r"(\d{4}-\d{2}-\d{2} \d{2}\.\d{2}\.\d{2})", base_name)
@@ -321,22 +301,22 @@ def addToCollection(mediafiles, mfile):
     days[day].append(mfile)
 
 
-def classifyMediaFiles(srcDir):
+def classifyMediaFiles(src_dirs):
     print("\n############ Classifying Media Files ...")
 
     # mediaType -> year -> month -> day -> mediaFile
     mediafiles = {}
-    for dirpath, _, filenames in os.walk(srcDir):
-        for fname in filenames:
-            currFile = MediaFile(os.path.join(dirpath, fname))
+    for src_dir in src_dirs:
+        for dirpath, _, filenames in os.walk(src_dir):
+            for fname in filenames:
+                currFile = MediaFile(os.path.join(dirpath, fname))
 
-            # print(currFile)
-            if currFile.mediaType != MediaType.UNKNOWN:
-                getDateTaken(currFile)
-                if currFile.dateTaken is None:
-                    currFile.mediaType = MediaType.UNKNOWN
+                if currFile.mediaType != MediaType.UNKNOWN:
+                    getDateTaken(currFile)
+                    if currFile.dateTaken is None:
+                        currFile.mediaType = MediaType.UNKNOWN
 
-            addToCollection(mediafiles, currFile)
+                addToCollection(mediafiles, currFile)
 
     return mediafiles
 
@@ -422,74 +402,41 @@ def sortFiles(outDir, mediafiles, custom_prefix):
 # ------------------------------------------------------------------------------------------------
 
 
-def removeMedia(destDir):
-    answer = None
-    while answer is None:
-        answer = input(
-            "Do you want to remove media files from " + destDir + "? [yes/no]: "
-        )
-        if answer != "yes" and answer != "no":
-            print("please answer yes or no")
-            answer = None
-        else:
-            answer = True if answer == "yes" else False
-
-    if answer:
-        os.system('adb shell rm -r "' + destDir + '/*"')
-
-
-# ------------------------------------------------------------------------------------------------
-
-
-parser = argparse.ArgumentParser(
-    description="Extract media files from adb connected"
-    "device and sort it by content type and data."
+@click.command()
+@click.option(
+    "--input_dir",
+    "-i",
+    type=click.Path(exists=True, file_okay=False, dir_okay=True),
+    required=True,
+    multiple=True,
+    help="Source directory of files to be sorted. Can be specified multiple times.",
 )
-
-parser.add_argument(
-    "-o", "--outputDir", type=str, help="Path to output directory.", required=True
+@click.option(
+    "--output_dir",
+    "-o",
+    type=click.Path(file_okay=False, dir_okay=True),
+    required=True,
+    help="Path to output directory.",
 )
-parser.add_argument(
-    "-s",
-    "--srcDir",
+@click.option(
+    "--prefix",
     type=str,
-    help="Source directory of files to be sorted. If not specified, files will be retrieved from connected mobile using adb.",
+    default=None,
+    help="Add this prefix to every media file.",
 )
-parser.add_argument(
-    "--pullOnly",
-    help="Only pull the data from mobile, do not sort.",
-    action="store_true",
-)
-parser.add_argument("--prefix", type=str, help="Add this prefix to every media file.")
+def main(input_dir, output_dir, prefix):
+    if not os.path.isdir(output_dir):
+        raise click.BadParameter(
+            f"Output directory does not exist: {output_dir}", param_hint="'-o'"
+        )
 
-args = parser.parse_args()
+    for src in input_dir:
+        convertOpusAudio(src)
+        batch_convert_heic_to_jpeg(src)
 
-if not os.path.isdir(args.outputDir):
-    raise RuntimeError("Output directory invalid: " + args.outputDir)
+    mediafiles = classifyMediaFiles(input_dir)
+    sortFiles(output_dir, mediafiles, prefix)
 
-sortmeDir = None
-if args.srcDir is not None:
-    sortmeDir = args.srcDir
-    if not os.path.isdir(args.srcDir):
-        raise RuntimeError("Source directory invalid " + args.srcDir)
 
-else:
-    sortmeDir = mkOutDir(args.outputDir, "sortme")
-    pullMedia(sortmeDir, CAMERADIR)
-    pullMedia(sortmeDir, WHATSAPPVOICEDIR)
-    pullMedia(sortmeDir, WHATSAPPVIDEODIR, removeSent=True)
-    pullMedia(sortmeDir, WHATSAPPIMGDIR, removeSent=True)
-
-if not args.pullOnly:
-    convertOpusAudio(sortmeDir)
-    batch_convert_heic_to_jpeg(sortmeDir)
-
-    # mediaType -> year -> month -> day -> list(mediaFile)
-    mediafiles = classifyMediaFiles(sortmeDir)
-    sortFiles(args.outputDir, mediafiles, args.prefix)
-
-if args.srcDir is None:
-    removeMedia(CAMERADIR)
-    removeMedia(WHATSAPPVOICEDIR)
-    removeMedia(WHATSAPPVIDEODIR)
-    removeMedia(WHATSAPPIMGDIR)
+if __name__ == "__main__":
+    main()
