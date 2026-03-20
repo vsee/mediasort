@@ -191,30 +191,62 @@ def _get_audio_date(path: Path) -> datetime | None:
     return None
 
 
-def _get_image_date(path: Path) -> datetime | None:
+def _companion_heic(path: Path) -> Path | None:
+    """Return the companion HEIC file for a given path, case-insensitively."""
+    for ext in (".heic", ".HEIC"):
+        candidate = path.with_suffix(ext)
+        if candidate.exists():
+            return candidate
+    return None
+
+
+def _read_exif_date(path: Path) -> datetime | None:
+    """Read EXIF DateTimeOriginal from a file; works for both JPEG and HEIC."""
     with path.open("rb") as f:
         tags = exifread.process_file(f, details=False, stop_tag="EXIF DateTimeOriginal")
-        if "EXIF DateTimeOriginal" in tags:
-            return datetime.strptime(
-                str(tags["EXIF DateTimeOriginal"]), "%Y:%m:%d %H:%M:%S"
-            )
+    if "EXIF DateTimeOriginal" in tags:
+        return datetime.strptime(
+            str(tags["EXIF DateTimeOriginal"]), "%Y:%m:%d %H:%M:%S"
+        )
+    return None
 
-        stem = path.stem
+
+def _get_image_date(path: Path) -> datetime | None:
+    # 1. EXIF from the file itself
+    date = _read_exif_date(path)
+    if date is not None:
+        return date
+
+    # 2. Filename patterns — each wrapped so a non-matching name just falls through
+    stem = path.stem
+    try:
         if stem.startswith("IMG_"):
             # EXPECTED: IMG_20141225_105859.jpg
             return datetime.strptime(stem, "IMG_%Y%m%d_%H%M%S")
+    except ValueError:
+        pass
+    try:
         if stem.startswith("Burst_Cover_GIF_Action_"):
             # EXPECTED: Burst_Cover_GIF_Action_20170621113951.gif
             return datetime.strptime(stem, "Burst_Cover_GIF_Action_%Y%m%d%H%M%S")
-        if stem.startswith("IMG-"):
-            # EXPECTED: IMG-20190906-WA0004.jpg
-            parts = stem.split("-")
-            return datetime.strptime(parts[1], "%Y%m%d") if len(parts) == 3 else None
+    except ValueError:
+        pass
+    if stem.startswith("IMG-"):
+        # EXPECTED: IMG-20190906-WA0004.jpg
+        parts = stem.split("-")
+        if len(parts) == 3:
+            try:
+                return datetime.strptime(parts[1], "%Y%m%d")
+            except ValueError:
+                pass
 
-    # Fallback: companion .heic file with date in filename
-    # EXPECTED: 2024-08-17 08.35.05.heic
-    heic = path.with_suffix(".heic")
-    if heic.exists():
+    # 3. Companion HEIC: read its EXIF, then try date-in-filename as last resort
+    heic = _companion_heic(path)
+    if heic is not None:
+        date = _read_exif_date(heic)
+        if date is not None:
+            return date
+        # EXPECTED filename: 2024-08-17 08.35.05.heic
         match = re.match(r"(\d{4}-\d{2}-\d{2} \d{2}\.\d{2}\.\d{2})", heic.name)
         if match:
             try:
@@ -267,6 +299,10 @@ def _classify_media_files(src_dirs: tuple[Path, ...]) -> dict:
     for src_dir in src_dirs:
         for path in src_dir.rglob("*"):
             if not path.is_file():
+                continue
+            # Skip HEIC when a converted JPG companion already exists — the JPG
+            # will be sorted instead (and will inherit the date from this HEIC).
+            if path.suffix.lower() == ".heic" and path.with_suffix(".jpg").exists():
                 continue
             mfile = MediaFile(path)
             if mfile.media_type != MediaType.UNKNOWN:
