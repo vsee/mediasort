@@ -1,0 +1,24 @@
+[project]
+name = "mediasort"
+version = "0.1.0"
+description = "Sort media files by content type and date"
+readme = "README.md"
+requires-python = ">=3.13"
+dependencies = [
+    "exifread>=2.3.2",
+    "pillow>=11.1.0",
+    "pillow-heif>=0.22.0",
+    "tqdm>=4.67.1",
+]
+
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[tool.uv]
+package = false
+
+[dependency-groups]
+dev = [
+    "pre-commit>=4.5.0",
+]
