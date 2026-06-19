@@ -312,19 +312,25 @@ def _add_to_collection(mediafiles: dict, mfile: MediaFile) -> None:
 
 def _classify_media_files(src_dirs: tuple[Path, ...]) -> dict:
     print("\n############ Classifying Media Files ...")
+
+    all_paths: list[Path] = []
+    with tqdm(desc="Scanning files", unit=" files") as scan_bar:
+        for src_dir in src_dirs:
+            for path in src_dir.rglob("*"):
+                if not path.is_file():
+                    continue
+                if path.suffix.lower() == ".heic" and path.with_suffix(".jpg").exists():
+                    continue
+                all_paths.append(path)
+                scan_bar.update(1)
+
     mediafiles: dict = {}
-    for src_dir in src_dirs:
-        for path in src_dir.rglob("*"):
-            if not path.is_file():
-                continue
-            # Skip HEIC when a converted JPG companion already exists — the JPG
-            # will be sorted instead (and will inherit the date from this HEIC).
-            if path.suffix.lower() == ".heic" and path.with_suffix(".jpg").exists():
-                continue
-            mfile = MediaFile(path)
-            if mfile.media_type != MediaType.UNKNOWN:
-                _resolve_date(mfile)
-            _add_to_collection(mediafiles, mfile)
+    for path in tqdm(all_paths, desc="Classifying files", unit=" files"):
+        mfile = MediaFile(path)
+        if mfile.media_type != MediaType.UNKNOWN:
+            _resolve_date(mfile)
+        _add_to_collection(mediafiles, mfile)
+
     return mediafiles
 
 
