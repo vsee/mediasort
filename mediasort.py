@@ -167,6 +167,20 @@ class MediaFile:
 # ------------------------------------------------------------------------------------------------
 
 
+_DROPBOX_DATE_RE = re.compile(r"^(\d{4}-\d{2}-\d{2} \d{2}\.\d{2}\.\d{2})")
+
+
+def _date_from_stem(stem: str) -> datetime | None:
+    """Parse a date from a Dropbox Camera Uploads stem: YYYY-MM-DD HH.MM.SS[-N]."""
+    match = _DROPBOX_DATE_RE.match(stem)
+    if match:
+        try:
+            return datetime.strptime(match.group(1), "%Y-%m-%d %H.%M.%S")
+        except ValueError:
+            pass
+    return None
+
+
 def _get_video_date(path: Path) -> datetime | None:
     stem = path.stem
     if stem.startswith("VID_"):
@@ -179,7 +193,8 @@ def _get_video_date(path: Path) -> datetime | None:
     if stem.startswith("PXL_"):
         # EXPECTED: PXL_20210121_175800715.mp4
         return datetime.strptime(stem, "PXL_%Y%m%d_%H%M%S%f")
-    return None
+    # EXPECTED: 2026-02-21 11.16.37.mov  (Dropbox Camera Uploads)
+    return _date_from_stem(stem)
 
 
 def _get_audio_date(path: Path) -> datetime | None:
@@ -240,19 +255,21 @@ def _get_image_date(path: Path) -> datetime | None:
             except ValueError:
                 pass
 
-    # 3. Companion HEIC: read its EXIF, then try date-in-filename as last resort
+    # 3. Dropbox Camera Uploads filename: YYYY-MM-DD HH.MM.SS[-N].jpg
+    date = _date_from_stem(stem)
+    if date is not None:
+        return date
+
+    # 4. Companion HEIC: read its EXIF, then try date-in-filename as last resort
     heic = _companion_heic(path)
     if heic is not None:
         date = _read_exif_date(heic)
         if date is not None:
             return date
-        # EXPECTED filename: 2024-08-17 08.35.05.heic
-        match = re.match(r"(\d{4}-\d{2}-\d{2} \d{2}\.\d{2}\.\d{2})", heic.name)
-        if match:
-            try:
-                return datetime.strptime(match.group(1), "%Y-%m-%d %H.%M.%S")
-            except ValueError:
-                print(f"WARNING: failed to parse date string from {heic}")
+        date = _date_from_stem(heic.stem)
+        if date is not None:
+            return date
+        print(f"WARNING: failed to parse date string from {heic}")
 
     return None
 
